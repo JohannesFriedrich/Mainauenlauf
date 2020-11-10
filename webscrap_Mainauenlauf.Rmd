@@ -1,0 +1,200 @@
+---
+title: "Scrap_Raceresults"
+author: "Johannes Friedrich"
+date: "10/30/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rvest)
+library(tidyverse)
+library(httr)
+library(plotly)
+
+parse_mainauenlauf_2016 <- function(data){
+  
+  return_data <- data %>% 
+  mutate(Startnummer = as.numeric(X1),
+         Platz = as.numeric(X2),
+         Name = X3,
+         Jahrgang = as.numeric(X4),
+         Geschlecht = X5,
+         AK = X6,
+         Verein = X7,
+         Zeit = lubridate::hms(X8),
+         Zeit2 = X8) %>% 
+  select(-c(1:8))
+  
+  return(return_data)
+  
+}
+
+parse_mainauenlauf_2017 <- function(data){
+  
+  return_data <- data %>% 
+  as.data.frame() %>% 
+  mutate(Startnummer = as.numeric(V1),
+         Platz = as.numeric(V2),
+         Name = V4,
+         Jahrgang = as.numeric(V5),
+         Geschlecht = V6,
+         AK = V7,
+         Verein = V8,
+         Zeit = lubridate::hms(V9),
+         Zeit2 = V9) %>% 
+  select(-c(1:9))
+  
+  return(return_data)
+  
+}
+
+parse_mainauenlauf_2018 <- function(data){
+  
+  return_data <- data %>% 
+  as.data.frame() %>% 
+  mutate(Startnummer = as.numeric(V1),
+         Platz = as.numeric(V2),
+         Name = V4,
+         Jahrgang = as.numeric(V5),
+         AK = V7,
+         Verein = V6,
+         Zeit = lubridate::hms(V8),
+         Zeit2 = V8,
+         Wettbewerb = V9) %>% 
+  select(-c(1:9)) 
+  
+  return(return_data)
+  
+}
+
+sort_names <- function(data){
+  
+  names <- unlist(lapply(data, function(name){
+  
+  temp <- strsplit(name, ", ")
+  
+  paste(temp[[1]][2], temp[[1]][1], sep = " ")
+  }))
+  
+  return(names)
+  
+}
+
+get_surnames <- function(data){
+  
+  names <- unlist(lapply(data, function(name){
+  
+  temp <- strsplit(name, " ")
+  
+  temp[[1]][1]
+  }))
+  
+  return(names)
+  
+}
+```
+
+
+## 2016
+
+```{r}
+
+url <- "https://my2.raceresult.com/RRPublish/data/list.php?eventid=42142&key=d4eee8986cb09919ed7c60f92429a9dc&listname=Ergebnislisten%7CErgebnisliste+MW&page=results&contest=0&r=group&name=%234_Mainauenlauf%0C%237_w"
+
+temp <- httr::GET(url)
+
+res <- jsonlite::fromJSON(httr::content(temp, "text"))
+res <- res$data[-length(res$data)]
+
+res <- data.frame(matrix(unlist(res), ncol = max(lengths(res)), byrow = TRUE))
+
+res_2016_w <- parse_mainauenlauf_2016(res) %>% 
+  mutate(Jahr = 2016,
+         Wettbewerb = "Mainauenlauf")
+
+#### female
+
+url <- "https://my2.raceresult.com/RRPublish/data/list.php?eventid=42142&key=d4eee8986cb09919ed7c60f92429a9dc&listname=Ergebnislisten%7CErgebnisliste+MW&page=results&contest=0&r=group&name=%234_Mainauenlauf%0C%238_m"
+temp <- httr::GET(url)
+
+res <- jsonlite::fromJSON(httr::content(temp, "text"))
+res <- res$data[-length(res$data)]
+res <- data.frame(matrix(unlist(res), ncol = max(lengths(res)), byrow = TRUE))
+
+res_2016_m <- parse_mainauenlauf_2016(res) %>% 
+  mutate(Jahr = 2016,
+         Wettbewerb = "Mainauenlauf")
+```
+
+## 2017
+
+```{r}
+url <- "https://my6.raceresult.com/RRPublish/data/list.php?eventid=64714&key=39735cd79443806a4e005d42a7f0b149&listname=1b_Ergebnislisten%7CErgebnisliste+MW+10k+plus+Main+MW&page=results&contest=0&r=all&l=0"
+
+temp <- httr::GET(url)
+
+res <- jsonlite::fromJSON(httr::content(temp, "text"))
+
+res_2017_w <- parse_mainauenlauf_2017(res$data$`#1_w`) %>% 
+  mutate(Jahr = 2017,
+         Wettbewerb = "Mainauenlauf")
+res_2017_m <- parse_mainauenlauf_2017(res$data$`#2_m`) %>% 
+  mutate(Jahr = 2017,
+         Wettbewerb = "Mainauenlauf")
+```
+
+## 2018
+
+```{r}
+
+
+url <- "https://my1.raceresult.com/RRPublish/data/list.php?eventid=83440&key=b85cdeb7d5b0fb6bea4c6da821a5758c&listname=1b_Ergebnislisten%7C2018+Ergebnisliste+Hauptlauf+m%2Fw&page=results&contest=0&r=all&l=0"
+
+temp <- httr::GET(url)
+
+res <- jsonlite::fromJSON(httr::content(temp, "text"))
+
+res_2018_w <- parse_mainauenlauf_2018(res$data$`#1_Hauptlauf Startzeit 11:30 Uhr`$`#1_Damen`) %>% 
+  mutate(Jahr = 2018,
+         Geschlecht = "w",
+         Name = sort_names(Name))
+
+res_2018_m <- parse_mainauenlauf_2018(res$data$`#1_Hauptlauf Startzeit 11:30 Uhr`$`#2_Herren`) %>% 
+  mutate(Jahr = 2018,
+         Geschlecht = "m",
+          Name = sort_names(Name))
+```
+
+
+## 2019
+
+```{r}
+url <- "https://my5.raceresult.com/RRPublish/data/list.php?eventid=107371&key=1f40c8e5b14566072768940056b86b22&listname=1b_Ergebnislisten%7C2019+Ergebnisliste+Hauptlauf+m%2Fw&page=results&contest=0&r=all&l=0"
+
+temp <- httr::GET(url)
+
+res <- jsonlite::fromJSON(httr::content(temp, "text"))
+
+res_2019_w <- parse_mainauenlauf_2018(res$data$`#1_Hauptlauf Startzeit 11:30 Uhr`$`#1_Damen`)%>% 
+  mutate(Jahr = 2019,
+         Geschlecht = "w",
+          Name = sort_names(Name))
+
+res_2019_m <- parse_mainauenlauf_2018(res$data$`#1_Hauptlauf Startzeit 11:30 Uhr`$`#2_Herren`)%>% 
+  mutate(Jahr = 2019,
+         Geschlecht = "m", 
+         Name = sort_names(Name))
+```
+
+
+## Save data
+
+```{r}
+all_data <- bind_rows(res_2016_m, res_2016_w, res_2017_m, res_2017_w, res_2018_m, res_2018_w, res_2019_m, res_2019_w) %>% 
+  mutate(Jahr = as.factor(Jahr),
+         Jahrgang= as.factor(Jahrgang))
+
+save(all_data, file = "Mainauenlauf_data.Rds")
+```
+
