@@ -1,0 +1,204 @@
+---
+title: "Mainauenlauf - Statistik"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+    source_code: https://github.com/JohannesFriedrich/Mainauenlauf
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(rvest)
+library(tidyverse)
+library(httr)
+library(plotly)
+library(DT)
+load("../Mainauenlauf_data.Rds")
+```
+
+```{r}
+get_surnames <- function(data){
+  
+  names <- unlist(lapply(data, function(name){
+  
+  temp <- strsplit(name, " ")
+  
+  temp[[1]][1]
+  }))
+  
+  return(names)
+  
+}
+```
+
+
+Teilnehmer-Statistiken
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Gesamtteilnehmer {data-width=300} 
+
+```{r}
+g <- all_data %>% 
+  group_by(Jahr, Geschlecht) %>% 
+  tally() %>% 
+
+ggplot(aes(Jahr, y = n)) + 
+  geom_bar(aes(fill = Geschlecht), stat = "identity", position = "stack") +
+  #geom_point(aes(color = Geschlecht), position = position_dodge2(width = 1)) +
+  #geom_line(aes(group = Geschlecht), position = position_dodge2(width = 1)) +
+  theme(legend.position = "bottom") +
+  labs(x = "Jahr", y = "Teilnehmer")
+
+# g
+plotly::ggplotly(g) %>% 
+  layout(legend = list(orientation = "h", x = 0.4, y = -0.2))
+
+```
+
+### Vereine
+
+
+```{r}
+g <- all_data %>% 
+  group_by(Jahr, Verein) %>% 
+  tally() %>% 
+  filter(Verein != "",
+         Verein != "-") %>% 
+  slice_max(n, n = 3) %>% 
+  
+  ggplot() + 
+  geom_bar(aes(Jahr, y = n, fill = Verein), stat = "identity", position = "dodge2") +
+  theme(legend.position = "bottom") +
+  labs(x = "Jahr", y = "Teilnehmer")
+
+plotly::ggplotly(g)
+```
+
+
+
+Row
+----------------
+
+### Altersklassen {data-width=700}
+
+```{r}
+g <- all_data %>% 
+  group_by(Jahr, Geschlecht, AK) %>% 
+  tally() %>% 
+  #slice_max(n, n = 3)
+
+ggplot() + 
+  geom_bar(aes(Jahr, y = n, fill = AK), stat = "identity", position = "dodge2") +
+  theme(legend.position = "none") +
+  labs(x = "Jahr", y = "Teilnehmer") +
+  facet_wrap(~Geschlecht)
+
+plotly::ggplotly(g)
+```
+
+Row
+--------
+
+### Vornamen
+
+```{r}
+g <- all_data %>% 
+  mutate(Vorname = get_surnames(Name)) %>% 
+  group_by(Geschlecht, Vorname) %>% 
+  tally() %>% 
+  slice_max(n, n= 5) %>% 
+  mutate(Vorname =  factor(Vorname, levels=Vorname)) %>% 
+  
+  ggplot() + 
+  geom_bar(aes(Geschlecht, y = n, fill = Vorname), stat = "identity", position = "dodge2") +
+  theme(legend.position = "bottom") +
+  labs(x = "Jahr", y = "Teilnehmer")
+
+plotly::ggplotly(g)
+```
+
+### Dauerteilnehmer
+
+```{r}
+all_data %>% 
+  group_by(Geschlecht, Name) %>% 
+  summarise(Teilnahmen = n()) %>% 
+  filter(Teilnahmen == 4) %>% 
+  DT::datatable()
+```
+
+Zeit-Statistiken
+=======================================================================
+
+Row
+---------
+
+### Zeiten nach Jahr {data-width=500}
+
+```{r Zeiten_Boxplot}
+
+g <- all_data %>%
+  #mutate(Zeit_str = paste('1970-01-01', Zeit),
+   #      Zeit_str = strptime(Zeit_str, format="%Y-%m-%d %H:%M:%S")) %>% 
+  ggplot(aes(x = Jahr, y = Zeit, color = Geschlecht)) + 
+  geom_boxplot(outlier.alpha = 0.6, position = "dodge2") +
+  scale_y_time() +
+  labs(x = "Jahr", y = "Zeit")
+
+plotly::ggplotly(g)
+```
+
+### Zeit vs. Platzierungen
+
+```{r}
+g <- all_data %>% 
+  group_by(Geschlecht) %>% 
+  
+  ggplot(aes(`Zeit`, Platz, color = Jahr)) +
+  geom_point() +
+  scale_x_time() +
+  facet_wrap(~Geschlecht) +
+  theme(legend.position = "none") +
+  labs(x="Zeit", y = "Platzierung")
+
+plotly::ggplotly(g)
+```
+
+Row
+--------
+
+### Zeiten nach Altersklassen
+
+```{r}
+g <- all_data %>% 
+  mutate(Zeit_seconds = lubridate::seconds(Zeit)) %>% 
+  group_by(Jahr, Geschlecht, AK) %>% 
+  summarise(avg_time = mean(Zeit_seconds),
+            n = n()) %>% 
+  mutate(Zeit =  lubridate::seconds_to_period(avg_time)) %>% 
+  
+  ggplot(aes(Jahr, Zeit, color = AK)) +
+  geom_point() +
+  scale_y_time() +
+  facet_wrap(~Geschlecht) +
+  labs(x="Jahr", y = "Zeit")
+
+plotly::ggplotly(g)
+```
+
+
+Alle Daten
+=======================================================================
+
+```{r}
+all_data %>% 
+  select(-c(Zeit)) %>%
+  mutate(Zeit = Zeit2) %>% 
+  select(-c(Zeit2)) %>% 
+  DT::datatable()
+```
+
