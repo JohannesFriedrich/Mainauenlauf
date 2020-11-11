@@ -116,7 +116,7 @@ g <- all_data %>%
   ggplot() + 
   geom_bar(aes(Geschlecht, y = n, fill = Vorname), stat = "identity", position = "dodge2") +
   theme(legend.position = "bottom") +
-  labs(x = "Jahr", y = "Teilnehmer")
+  labs(x = "Geschlecht", y = "Teilnehmer")
 
 plotly::ggplotly(g)
 ```
