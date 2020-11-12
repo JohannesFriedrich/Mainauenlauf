@@ -121,13 +121,14 @@ g <- all_data %>%
 plotly::ggplotly(g)
 ```
 
-### Dauerteilnehmer
+### Dauerteilnehmer (mindestens 4 Teilnahmen)
 
 ```{r}
 all_data %>% 
   group_by(Geschlecht, Name) %>% 
   summarise(Teilnahmen = n()) %>% 
-  filter(Teilnahmen == 4) %>% 
+  ungroup() %>% 
+  filter(Teilnahmen >= 4) %>% 
   DT::datatable()
 ```
 
@@ -137,20 +138,34 @@ Zeit-Statistiken
 Row
 ---------
 
-### Zeiten nach Jahr {data-width=500}
+### Zeiten nach Jahr {data-width=600}
 
 ```{r Zeiten_Boxplot}
 
-g <- all_data %>%
-  #mutate(Zeit_str = paste('1970-01-01', Zeit),
-   #      Zeit_str = strptime(Zeit_str, format="%Y-%m-%d %H:%M:%S")) %>% 
-  ggplot(aes(x = Jahr, y = Zeit, color = Geschlecht)) + 
-  geom_boxplot(outlier.alpha = 0.6, position = "dodge2") +
-  scale_y_time() +
-  labs(x = "Jahr", y = "Zeit")
+all_data %>% 
+plot_ly(x = ~Jahr, y = ~Zeit2, color = ~Geschlecht) %>% 
+  add_boxplot() %>% 
+  layout(xaxis = list(title = "Jahr"), yaxis = list(title = "Zeit"))
+```
+
+### Zeit vs. Startnummer
+
+```{r}
+g <- all_data %>% 
+  group_by(Geschlecht) %>% 
+  
+  ggplot(aes(Zeit, Startnummer, color = Jahr, text = paste0("Name: ",Name))) +
+  geom_point(size = 0.8, alpha = 0.6) +
+  scale_x_time() +
+  facet_grid(Jahr~Geschlecht) +
+  theme(legend.position = "none") +
+  labs(x="Zeit", y = "Platzierung")
 
 plotly::ggplotly(g)
 ```
+
+Row
+--------
 
 ### Zeit vs. Platzierungen
 
@@ -158,14 +173,15 @@ plotly::ggplotly(g)
 g <- all_data %>% 
   group_by(Geschlecht) %>% 
   
-  ggplot(aes(`Zeit`, Platz, color = Jahr)) +
-  geom_point() +
+  ggplot(aes(Zeit, Platz, color = Jahr, text = paste0("Name: ",Name))) +
+  geom_point(size = 0.8, alpha = 0.6) +
   scale_x_time() +
   facet_wrap(~Geschlecht) +
   theme(legend.position = "none") +
   labs(x="Zeit", y = "Platzierung")
 
 plotly::ggplotly(g)
+  
 ```
 
 Row
@@ -188,6 +204,36 @@ g <- all_data %>%
   labs(x="Jahr", y = "Zeit")
 
 plotly::ggplotly(g)
+```
+
+### Zeitunterschiede bei mind. 2 Teilnahmen
+
+```{r}
+names <- all_data %>% 
+  group_by(Geschlecht, Name) %>% 
+  summarise(Teilnahmen = n()) %>% 
+  ungroup() %>% 
+  filter(Teilnahmen >= 2) %>% 
+  select(Geschlecht, Name, Teilnahmen) %>% 
+  arrange(-desc(Name))
+
+diff <- all_data %>% 
+  filter(Name %in% names$Name) %>% 
+  arrange(-desc(Name)) %>% 
+  group_by(Name) %>% 
+  mutate(Zeit_seconds = lubridate::seconds(Zeit)) %>% 
+  summarise(min_time = min(Zeit_seconds),
+            max_time = max(Zeit_seconds)) %>% 
+    mutate(Geschlecht = names$Geschlecht) %>% 
+
+  mutate(`Differenz` =  lubridate::seconds_to_period(max_time - min_time)) %>% 
+  select(-c(min_time, max_time)) %>% 
+  mutate(Teilnahmen = names$Teilnahmen) %>% 
+  arrange(desc(`Teilnahmen`)) %>% 
+  mutate(Differenz = paste0(`Differenz`@minute, ":", Differenz@.Data))
+
+diff %>%  
+  DT::datatable()
 ```
 
 
